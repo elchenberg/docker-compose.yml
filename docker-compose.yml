@@ -1,0 +1,93 @@
+version: '3.7'
+
+x-default-service-settings: &default-service-settings
+  cap_drop:
+    - ALL
+  read_only: true
+  user: '${USERID:?err}:${GROUPID:?err}'
+
+networks:
+  default:
+    internal: true
+  external:
+  internal:
+    internal: true
+
+services:
+  dotnet-core-sdk:
+    <<: *default-service-settings
+    command:
+      [
+        'sh',
+        '-euxc',
+        'dotnet new webapp --no-https --output . || dotnet watch run --urls "http://0.0.0.0:5000"',
+      ]
+    environment:
+      - DOTNET_CLI_TELEMETRY_OPTOUT=true
+      - HOME=/tmp
+    image: mcr.microsoft.com/dotnet/core/sdk
+    networks:
+      - external
+    ports:
+      - '5000:5000'
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./volumes/dotnet-core-sdk:/app:rw
+    working_dir: /app
+
+  mssql-server:
+    <<: *default-service-settings
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=${MSSQL_SA_PASSWORD}
+    image: mcr.microsoft.com/mssql/server
+    networks:
+      - internal
+    volumes:
+      - ./volumes/mssql-server:/var/opt/mssql:rw
+
+  php-fpm:
+    <<: *default-service-settings
+    image: docker.io/library/php:fpm
+
+  nginx:
+    <<: *default-service-settings
+    command: ['nginx', '-g', 'daemon off;']
+    image: docker.io/library/nginx
+    networks:
+      - external
+    ports:
+      - '8080:8080'
+    tmpfs:
+      - /var/cache/nginx/client_temp
+      - /var/cache/nginx/proxy_temp
+      - /var/cache/nginx/fastcgi_temp
+      - /var/cache/nginx/uwsgi_temp
+      - /var/cache/nginx/scgi_temp
+    volumes:
+      - ./volumes/nginx:/var/run:rw
+      - ./volumes/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    working_dir: /usr/share/nginx/html
+
+  composer:
+    <<: *default-service-settings
+    command: ['composer', 'install']
+    environment:
+      - HOME=/tmp
+    image: docker.io/library/composer
+    tmpfs:
+      - /tmp
+    working_dir: /app
+
+  npm:
+    <<: *default-service-settings
+    command: ['npm', 'install']
+    environment:
+      - HOME=/tmp
+    image: docker.io/library/node
+    networks:
+      - external
+    tmpfs:
+      - /tmp
+    working_dir: /app
