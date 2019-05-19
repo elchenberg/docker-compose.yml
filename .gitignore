@@ -1,1 +1,10 @@
+# Ignore everything in this directory
+*
 .env
+# Except this files and directories
+!.dockerignore
+!.gitignore
+!docker-compose.yml
+!LICENSE
+!README.md
+!volumes
